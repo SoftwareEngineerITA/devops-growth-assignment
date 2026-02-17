@@ -118,14 +118,14 @@ curl http://localhost:8080/actuator/health
 
 ### Build Docker Image
 
-**SENIORSKI TIP:** Multi-stage build optimizacija
+**PRO TIP:** Multi-stage build optimization
 
 ```bash
 docker build -t resilient-spring-platform:1.0.0 .
 ```
 
-**Pitanje:** Koliko vremena traje prvi build vs drugi build?
-**Odgovor:** Prvi build = ~3-5 min (skida dependencies), Drugi build = ~30s (cache!)
+**Q:** How long does the first build take vs. second build?
+**A:** First build = ~3-5 min (downloads dependencies), Second build = ~30s (cached!)
 
 ### Run Docker Container
 
@@ -151,12 +151,12 @@ docker inspect --format='{{.State.Health.Status}}' spring-app
 
 ### Docker Image Analysis
 
-**Pitanje:** Koliko je veliki final image?
+**Q:** How large is the final image?
 ```bash
 docker images resilient-spring-platform:1.0.0
 
 # Expected: ~200-250MB (JRE + Alpine + JAR)
-# Bez multi-stage: ~800MB+ (JDK + Maven + cache)
+# Without multi-stage: ~800MB+ (JDK + Maven + cache)
 ```
 
 ---
@@ -165,7 +165,7 @@ docker images resilient-spring-platform:1.0.0
 
 ### Prerequisites: Docker Desktop Kubernetes
 
-1. **Enable Kubernetes** u Docker Desktop settings
+1. **Enable Kubernetes** in Docker Desktop settings
 2. **Verify context:**
    ```bash
    kubectl config current-context
@@ -174,19 +174,19 @@ docker images resilient-spring-platform:1.0.0
 
 ### Deploy to Kubernetes
 
-#### Step 1: Load Docker Image u Kubernetes
+#### Step 1: Load Docker Image into Kubernetes
 ```bash
-# Docker Desktop automatski vidi lokalne image-e
-# Provera:
+# Docker Desktop automatically sees local images
+# Verification:
 docker images | grep resilient-spring-platform
 ```
 
 #### Step 2: Apply Kubernetes Manifests
 ```bash
-# Apply sve manifeste odjednom
+# Apply all manifests at once
 kubectl apply -f k8s/
 
-# Ili jedan po jedan (za učenje):
+# Or one by one (for learning):
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml
 kubectl apply -f k8s/deployment.yaml
@@ -225,36 +225,36 @@ curl http://localhost:8080/api/greet?name=K8s
 
 ### Environment Variables Hierarchy
 
-**Prioritet (najviši ka najnižem):**
+**Priority (highest to lowest):**
 1. **Kubernetes Secret/ConfigMap** (Production)
 2. **Environment Variables** (Docker/OS)
 3. **application.properties** (Default values)
 
-### Example: Promena poruke
+### Example: Change Greeting Message
 
 #### Option 1: Edit ConfigMap
 ```bash
 kubectl edit configmap app-config
 
-# Change: APP_GREETING_MESSAGE: "Zdravo iz K8s"
+# Change: APP_GREETING_MESSAGE: "Hello from K8s"
 
-# Restart pods za reload
+# Restart pods to reload
 kubectl rollout restart deployment/resilient-spring-platform
 ```
 
-#### Option 2: Apply novi ConfigMap
+#### Option 2: Apply New ConfigMap
 ```yaml
 # k8s/configmap.yaml
 data:
-  APP_GREETING_MESSAGE: "Izmenjeno!"
+  APP_GREETING_MESSAGE: "Updated!"
 ```
 ```bash
 kubectl apply -f k8s/configmap.yaml
 kubectl rollout restart deployment/resilient-spring-platform
 ```
 
-**Pitanje:** Zašto mora restart?
-**Odgovor:** Spring Boot ne prati ConfigMap promene automatski. Za dynamic reload treba Spring Cloud Config Server ili sidecar pattern.
+**Q:** Why is restart required?
+**A:** Spring Boot doesn't watch ConfigMap changes automatically. For dynamic reload, use Spring Cloud Config Server or sidecar pattern.
 
 ---
 
@@ -262,22 +262,22 @@ kubectl rollout restart deployment/resilient-spring-platform
 
 ### Resource Management
 
-**CPU i Memory Limits su definisani u deployment.yaml:**
+**CPU and Memory Limits are defined in deployment.yaml:**
 
 ```yaml
 resources:
   requests:
-    cpu: 100m      # Garantovani minimum
+    cpu: 100m      # Guaranteed minimum
     memory: 256Mi
   limits:
-    cpu: 500m      # Maksimum
+    cpu: 500m      # Maximum
     memory: 512Mi
 ```
 
-**Pitanje:** Šta ako app zatraži više od limit-a?
-**Odgovor:**
-- **CPU:** Throttling (usporenje, ne kill)
-- **Memory:** OOMKilled (pod se restartuje)
+**Q:** What happens if the app exceeds the limit?
+**A:**
+- **CPU:** Throttling (slowdown, not killed)
+- **Memory:** OOMKilled (pod is restarted)
 
 ### Health Probes
 
@@ -289,14 +289,14 @@ curl http://localhost:8080/actuator/health/liveness
 # Expected: {"status":"UP"}
 ```
 
-**Šta radi:** Ako 3x fail → K8s restartuje pod
+**What it does:** If 3x fail → K8s restarts pod
 
 #### Readiness Probe
 ```bash
 curl http://localhost:8080/actuator/health/readiness
 ```
 
-**Šta radi:** Ako fail → Pod se uklanja iz Service load balancinga
+**What it does:** If fail → Pod is removed from Service load balancing
 
 ### Security
 
@@ -312,73 +312,73 @@ curl http://localhost:8080/actuator/health/readiness
 
 ### Scenario 1: Pod Crashes
 
-**Simulacija:**
+**Simulation:**
 ```bash
-# Ubij pod
+# Kill pod
 kubectl delete pod -l app=resilient-spring-platform --grace-period=0
 
-# Posmatraj recovery
+# Watch recovery
 kubectl get pods -w
 ```
 
-**Šta se dešava:**
+**What happens:**
 1. Liveness probe fails
-2. K8s kreira novi pod (replicas=2 config)
-3. Service automatski rutira traffic na healthy pod
-4. **Downtime:** ~0-5s (zbog replicas=2)
+2. K8s creates new pod (replicas=2 config)
+3. Service automatically routes traffic to healthy pod
+4. **Downtime:** ~0-5s (due to replicas=2)
 
 ### Scenario 2: Memory Leak (OOMKill)
 
-**Simulacija:**
+**Simulation:**
 ```bash
-# Smanji memory limit
+# Reduce memory limit
 kubectl set resources deployment/resilient-spring-platform \
   --limits=memory=128Mi
 
-# Povećaj load
+# Increase load
 for i in {1..100}; do curl http://localhost:30080/api/greet?name=Test$i; done
 ```
 
-**Šta se dešava:**
-1. Memory usage raste
-2. Prelazi 128Mi limit
+**What happens:**
+1. Memory usage increases
+2. Exceeds 128Mi limit
 3. OOMKilled
-4. K8s restartuje pod
+4. K8s restarts pod
 5. Check events: `kubectl describe pod <pod-name>`
 
 ### Scenario 3: Rolling Update
 
-**Simulacija:**
+**Simulation:**
 ```bash
-# Promeni image tag
+# Change image tag
 kubectl set image deployment/resilient-spring-platform \
   app=resilient-spring-platform:2.0.0
 
-# Posmatraj rollout
+# Watch rollout
 kubectl rollout status deployment/resilient-spring-platform
 ```
 
-**Šta se dešava:**
-1. K8s kreira novi pod (v2.0.0)
-2. Čeka readiness probe
-3. Novi pod postaje healthy
-4. K8s šalje traffic na novi pod
-5. Stari pod se gasi (graceful shutdown)
+**What happens:**
+1. K8s creates new pod (v2.0.0)
+2. Waits for readiness probe
+3. New pod becomes healthy
+4. K8s routes traffic to new pod
+5. Old pod terminates (graceful shutdown)
 6. **maxUnavailable=0** = ZERO DOWNTIME!
 
 ### Scenario 4: ConfigMap Change
 
-**Problem:** Promena ConfigMap ne restartuje podove automatski
+**Problem:** ConfigMap changes don't restart pods automatically
 
-**Rešenje:**
+**Solution:**
 ```bash
 kubectl rollout restart deployment/resilient-spring-platform
 ```
 
-**Alternativa (automatski reload):**
+**Alternative (automatic reload):**
 - Reloader operator (Stakater Reloader)
 - Spring Cloud Config Server
-- Sidecar sa fsnotify
+- Sidecar with fsnotify
 
 ---
 
@@ -389,24 +389,24 @@ kubectl rollout restart deployment/resilient-spring-platform
 - **Benefit:** Build cache ubrzava rebuild 10x
 - **Trade-off:** Debugging je teži (nema dev tools u production image)
 
-### 2. **Resource Limits = Stabilnost**
-- Bez limits = jedan pod može kolapširati ceo node
-- Requests omogućavaju K8s scheduleru da pravilno rasporedi podove
-- Limits sprečavaju "noisy neighbor" problem
+### 2. **Resource Limits = Stability**
+- Without limits = one pod can crash entire node
+- Requests enable K8s scheduler to properly distribute pods
+- Limits prevent "noisy neighbor" problem
 
-### 3. **Health Probes su Kritične**
+### 3. **Health Probes are Critical**
 - Liveness = recovery automation
 - Readiness = zero-downtime deployments
-- Bez probes = manual intervention required
+- Without probes = manual intervention required
 
-### 4. **Configuration Eksternalizacija**
-- Isti image = dev/staging/prod (12-Factor App)
-- Promene bez rebuild aplikacije
-- Centralizovana konfiguracija
+### 4. **Configuration Externalization**
+- Same image = dev/staging/prod (12-Factor App)
+- Changes without rebuilding application
+- Centralized configuration
 
-### 5. **Replicas ≥ 2 za High Availability**
-- Rolling updates bez downtime
-- Fault tolerance (jedan pod crashuje, drugi preuzima)
+### 5. **Replicas ≥ 2 for High Availability**
+- Rolling updates without downtime
+- Fault tolerance (one pod crashes, other takes over)
 - Load distribution
 
 ### 6. **Security Mindset**
@@ -493,4 +493,4 @@ This project is for educational purposes as part of an individual development as
 
 ---
 
-**Za detaljnu arhitekturnu analizu, pogledaj:** [ARCHITECTURE-AND-DESIGN.md](./ARCHITECTURE-AND-DESIGN.md)
+**For detailed architectural analysis, see:** [ARCHITECTURE-AND-DESIGN.md](./ARCHITECTURE-AND-DESIGN.md)
