@@ -1,0 +1,13 @@
+# Docker ignore - fajlovi koje Docker NE kopira u image
+# SENIORSKI TIP: Smanjuje build context, ubrzava build
+
+target/
+.git/
+.gitignore
+*.md
+.mvn/wrapper/maven-wrapper.jar
+k8s/
+*.log
+.idea/
+*.iml
+.vscode/

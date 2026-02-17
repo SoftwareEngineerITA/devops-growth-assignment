@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: resilient-spring-platform
+  namespace: resilient-dev
+  labels:
+    app: resilient-spring-platform
+    version: v1
+spec:
+  # High Availability - 2 replicas for load balancing and fault tolerance
+  replicas: 2
+  
+  selector:
+    matchLabels:
+      app: resilient-spring-platform
+      version: v1
+  
+  # Rolling Update Strategy - Zero downtime deployments
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0  # Always maintain minimum capacity
+      maxSurge: 1        # One extra pod during rollout
+  
+  template:
+    metadata:
+      labels:
+        app: resilient-spring-platform
+        version: v1
+    spec:
+      # Security - Non-root user execution
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      
+      containers:
+      - name: app
+        image: resilient-spring-platform:1.0.0
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        
+        # Environment Variables - Externalized Configuration
+        env:
+        # From ConfigMap
+        - name: APP_GREETING_MESSAGE
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: APP_GREETING_MESSAGE
+        
+        - name: APP_ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: APP_ENVIRONMENT
+        
+        # From Secret
+        - name: DATABASE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: DATABASE_PASSWORD
+        
+        - name: SERVER_PORT
+          value: "8080"
+        
+        # Resource Limits - Critical for production stability
+        resources:
+          requests:
+            cpu: 100m       # Guaranteed minimum
+            memory: 256Mi
+          limits:
+            cpu: 500m       # Maximum allowed
+            memory: 512Mi   # Exceeding triggers OOMKilled
+        
+        # Liveness Probe - Detects if application is alive
+        # Failure action: Restart pod
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        
+        # Readiness Probe - Detects if application is ready for traffic
+        # Failure action: Remove from Service endpoints
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 20
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3

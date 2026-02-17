@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: resilient-spring-platform
+  namespace: resilient-dev
+  labels:
+    app: resilient-spring-platform
+spec:
+  # Service Type - NodePort for local testing
+  # Production: LoadBalancer (cloud) or ClusterIP + Ingress
+  type: NodePort
+  
+  # Selector - Routes traffic to pods with matching labels
+  selector:
+    app: resilient-spring-platform
+  
+  # Port Configuration
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80          # Service port
+    targetPort: 8080  # Container port
+    nodePort: 30081   # External access port (30000-32767 range)

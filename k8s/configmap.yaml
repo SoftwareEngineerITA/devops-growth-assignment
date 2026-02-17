@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: resilient-dev
+  labels:
+    app: resilient-spring-platform
+data:
+  # Application Configuration - Externalized per 12-Factor App principles
+  # Different values per environment (dev/staging/prod)
+  
+  APP_GREETING_MESSAGE: "Hello from Kubernetes"
+  APP_ENVIRONMENT: "kubernetes-production"
+  SPRING_PROFILES_ACTIVE: "prod"
