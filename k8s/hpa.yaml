@@ -1,0 +1,54 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: resilient-spring-platform-hpa
+  namespace: resilient-dev
+  labels:
+    app: resilient-spring-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: resilient-spring-platform
+  
+  # Minimum and maximum replicas
+  minReplicas: 2
+  maxReplicas: 5
+  
+  # Scaling metrics
+  metrics:
+  # Scale based on CPU usage
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale up if CPU > 70%
+  
+  # Scale based on Memory usage
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # Scale up if Memory > 80%
+  
+  # Scaling behavior (optional - controls speed of scaling)
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 60  # Wait 1 min before scaling down (demo-friendly)
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60  # Scale down max 50% of pods per minute
+    
+    scaleUp:
+      stabilizationWindowSeconds: 0  # Scale up immediately
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30  # Scale up max 100% of pods per 30s
+      - type: Pods
+        value: 2
+        periodSeconds: 30  # Or add max 2 pods per 30s
+      selectPolicy: Max  # Use the policy that scales fastest
